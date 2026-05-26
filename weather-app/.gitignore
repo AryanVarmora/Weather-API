@@ -45,3 +45,5 @@ Thumbs.db
 
 # API Key
 src/environments/environment.tssrc/environments/environment.ts
+src/environments/environment.ts
+.DS_Store
