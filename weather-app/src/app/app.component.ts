@@ -14,40 +14,64 @@ export class AppComponent {
   weather: any = null;
   error = '';
   loading = false;
+  isCelsius = false;
+  history: { zip: string; city: string }[] = [];
 
   constructor(private weatherService: WeatherService) {}
 
-  getWeather() {
-    if (!/^\d{5}$/.test(this.zip)) {
+  getWeather(zipOverride?: string) {
+    const zip = zipOverride || this.zip;
+
+    if (!/^\d{5}$/.test(zip)) {
       this.error = 'Please enter a valid 5-digit ZIP code.';
       this.weather = null;
       return;
     }
 
+    this.zip = zip;
     this.error = '';
     this.loading = true;
     this.weather = null;
 
-    this.weatherService.getWeatherByZip(this.zip).subscribe({
+    const timeout = setTimeout(() => {
+      this.error = 'Request timed out. ZIP code may be invalid.';
+      this.loading = false;
+      this.weather = null;
+    }, 10000);
+
+    this.weatherService.getWeatherByZip(zip).subscribe({
       next: (data) => {
+        clearTimeout(timeout);
         this.weather = data;
         this.loading = false;
+        this.addToHistory(zip, data.city);
       },
-      error: () => {
-        this.error = 'ZIP code not found. Please try again.';
+      error: (err) => {
+        clearTimeout(timeout);
+        if (err.message === 'timeout') {
+          this.error = 'Request timed out. Please try again.';
+        } else {
+          this.error = 'ZIP code not found. Please try again.';
+        }
         this.loading = false;
       }
     });
   }
 
-  getCondition(code: number): string {
-    const conditions: { [key: number]: string } = {
-      0: 'Clear Sky', 1: 'Mainly Clear', 2: 'Partly Cloudy', 3: 'Overcast',
-      45: 'Foggy', 48: 'Icy Fog', 51: 'Light Drizzle', 53: 'Drizzle',
-      61: 'Light Rain', 63: 'Rain', 65: 'Heavy Rain',
-      71: 'Light Snow', 73: 'Snow', 75: 'Heavy Snow',
-      95: 'Thunderstorm', 99: 'Thunderstorm with Hail'
-    };
-    return conditions[code] ?? 'Unknown';
+  addToHistory(zip: string, city: string) {
+    this.history = this.history.filter(h => h.zip !== zip);
+    this.history.unshift({ zip, city });
+    if (this.history.length > 5) this.history.pop();
+  }
+
+  getTemp(f: number): string {
+    if (this.isCelsius) {
+      return Math.round((f - 32) * 5 / 9) + '°C';
+    }
+    return f + '°F';
+  }
+
+  toggleUnit() {
+    this.isCelsius = !this.isCelsius;
   }
 }
